@@ -1,0 +1,341 @@
+import streamlit as st
+import pandas as pd
+import numpy as np
+import seaborn as sns
+import matplotlib.pyplot as plt
+import io
+import os
+import sys
+
+# Ensure src modules are discoverable
+sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
+
+from src.synthesizer import DataIngestor, AdracaSynthesizer
+from src.privacy import PrivacyValidator
+from src.main import create_pdf_report
+
+# Page Configuration
+st.set_page_config(
+    page_title="Adraca Synthetic Patient Engine",
+    page_icon="🧬",
+    layout="wide",
+    initial_sidebar_state="expanded",
+)
+
+# Custom Theme Styling (Minimalist Life Sciences)
+st.markdown(
+    """
+    <style>
+    .reportview-container {
+        background: #F4F7F6;
+    }
+    .sidebar .sidebar-content {
+        background: #E8F0FE;
+    }
+    h1 {
+        color: #1A73E8;
+        font-family: 'Helvetica Neue', sans-serif;
+    }
+    h2, h3 {
+        color: #3C4043;
+    }
+    .stButton>button {
+        background-color: #1A73E8;
+        color: white;
+        border-radius: 4px;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
+
+st.title("🧬 Adraca Synthetic Patient Engine")
+st.markdown("Zero-Trust Synthetic Patient Engine Control Panel")
+
+# Initialize Session State
+if 'real_data' not in st.session_state:
+    st.session_state.real_data = None
+if 'metadata' not in st.session_state:
+    st.session_state.metadata = None
+if 'synthetic_data' not in st.session_state:
+    st.session_state.synthetic_data = None
+if 'valid_synthetic_data' not in st.session_state:
+    st.session_state.valid_synthetic_data = None
+if 'risk_score' not in st.session_state:
+    st.session_state.risk_score = None
+if 'exact_match_rate' not in st.session_state:
+    st.session_state.exact_match_rate = None
+if 'avg_ks' not in st.session_state:
+    st.session_state.avg_ks = None
+if 'is_compliant' not in st.session_state:
+    st.session_state.is_compliant = None
+
+# Sidebar Controls
+with st.sidebar:
+    st.header("⚙️ Configuration")
+    
+    epsilon_val = st.slider(
+        "ε-Differential Privacy Budget", 
+        min_value=0.1, 
+        max_value=10.0, 
+        value=1.0, 
+        step=0.1,
+        help="Lower values mean more privacy and noise, higher values mean less privacy but higher fidelity."
+    )
+    
+    target_rows = st.number_input(
+        "Target Row Count", 
+        min_value=10, 
+        max_value=100000, 
+        value=500, 
+        step=100
+    )
+    
+    synthesizer_selection = st.selectbox(
+        "Synthesizer Algorithm",
+        ("Gaussian Copula (Default CPU)",)
+    )
+
+# Tabs
+tab1, tab2, tab3, tab4 = st.tabs(["1. Ingestion", "2. Training", "3. Validation", "4. Export"])
+
+# =======================
+# TAB 1: Ingestion
+# =======================
+with tab1:
+    st.header("Upload Patient Data")
+    uploaded_file = st.file_uploader("Upload CSV or Parquet file", type=["csv", "parquet"])
+    
+    if uploaded_file is not None:
+        try:
+            # Read Data
+            if uploaded_file.name.endswith('.csv'):
+                df = pd.read_csv(uploaded_file)
+            else:
+                df = pd.read_parquet(uploaded_file)
+                
+            st.session_state.real_data = df
+            
+            # Save to /data/input/ for tracking
+            os.makedirs('./data/input/', exist_ok=True)
+            input_path = f'./data/input/{uploaded_file.name}'
+            if uploaded_file.name.endswith('.csv'):
+                df.to_csv(input_path, index=False)
+            else:
+                df.to_parquet(input_path, index=False)
+            
+            st.success(f"Successfully loaded {df.shape[0]} rows and {df.shape[1]} columns.")
+            
+            # Data Health Summary
+            st.subheader("Data Health Summary")
+            col1, col2 = st.columns(2)
+            
+            # Column Types
+            cat_cols = df.select_dtypes(include=['object', 'category']).columns.tolist()
+            num_cols = df.select_dtypes(include=['number']).columns.tolist()
+            dt_cols = df.select_dtypes(include=['datetime']).columns.tolist()
+            
+            with col1:
+                st.write("**Feature Types:**")
+                st.write(f"- Categorical: {len(cat_cols)}")
+                st.write(f"- Numerical: {len(num_cols)}")
+                st.write(f"- Datetime: {len(dt_cols)}")
+                
+            # Missing Values
+            with col2:
+                missing_pct = df.isnull().mean() * 100
+                st.write("**Missing Values:**")
+                if missing_pct.sum() == 0:
+                    st.write("No missing values detected.")
+                else:
+                    st.dataframe(missing_pct[missing_pct > 0].to_frame(name="% Missing"))
+            
+            # Show preview
+            st.write("**Data Preview:**")
+            st.dataframe(df.head())
+            
+        except Exception as e:
+            st.error(f"Error reading file: {e}")
+
+# =======================
+# TAB 2: Training
+# =======================
+with tab2:
+    st.header("Synthetic Engine Execution")
+    
+    if st.session_state.real_data is None:
+        st.info("Plese upload data in the Ingestion tab first.")
+    else:
+        st.write(f"**Selected Synthesizer:** {synthesizer_selection}")
+        st.write(f"**Privacy Budget (ε):** {epsilon_val}")
+        st.write(f"**Target Rows:** {target_rows}")
+        
+        start_btn = st.button("🚀 Start Engine")
+        
+        status_text = st.empty()
+        progress_bar = st.progress(0)
+        
+        if start_btn:
+            try:
+                # Stage 1: Meta
+                status_text.text("Status: Inferring Metadata...")
+                progress_bar.progress(10)
+                ingestor = DataIngestor()
+                metadata = ingestor.infer_metadata(st.session_state.real_data)
+                st.session_state.metadata = metadata
+                
+                # Stage 2: Engine
+                status_text.text("Status: Fitting Marginal Distributions (Gaussian Copula)...")
+                progress_bar.progress(30)
+                synthesizer = AdracaSynthesizer(metadata=metadata, epsilon=epsilon_val)
+                synthesizer.fit(st.session_state.real_data)
+                
+                status_text.text(f"Status: Injecting Laplacian Noise (ε={epsilon_val})...")
+                progress_bar.progress(50)
+                
+                num_oversample = target_rows + int(target_rows * 0.1)
+                raw_synthetic_data = synthesizer.sample(num_rows=num_oversample)
+                
+                # Stage 3: Validation
+                status_text.text("Status: Calculating Gower Distance and evaluating Privacy...")
+                progress_bar.progress(70)
+                
+                validator = PrivacyValidator(real_data=st.session_state.real_data, synthetic_data=raw_synthetic_data)
+                valid_synthetic_data, dcr_values, exact_match_rate = validator.calculate_dcr()
+                
+                status_text.text("Status: Evaluating Statistical Utility...")
+                progress_bar.progress(85)
+                avg_ks = validator.evaluate_utility()
+                risk_score = validator.evaluate_reidentification_risk()
+                
+                is_compliant = (risk_score <= 0.09) and (exact_match_rate == 0.0)
+                
+                # Store globally
+                st.session_state.valid_synthetic_data = valid_synthetic_data.head(target_rows)
+                st.session_state.risk_score = risk_score
+                st.session_state.exact_match_rate = exact_match_rate
+                st.session_state.avg_ks = avg_ks
+                st.session_state.is_compliant = is_compliant
+                
+                progress_bar.progress(100)
+                status_text.text("Status: Generation & Validation Complete!")
+                st.success("Engine Execution Finished. Please proceed to the Validation Tab.")
+                
+            except Exception as e:
+                st.error(f"Engine failed: {e}")
+
+# =======================
+# TAB 3: Validation
+# =======================
+with tab3:
+    st.header("Validation & Quality Check")
+    
+    if st.session_state.valid_synthetic_data is None:
+        st.info("Please generate synthetic data in the Training tab first.")
+    else:
+        # Scorecards
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.subheader("Privacy Scorecard")
+            risk = st.session_state.risk_score
+            dcr_match = st.session_state.exact_match_rate
+            
+            # Risk color
+            if risk > 0.09:
+                st.error(f"Re-identification Risk: {risk:.4f} (Violates Threshold > 0.09)")
+            else:
+                st.success(f"Re-identification Risk: {risk:.4f} (Pass)")
+                
+            if dcr_match > 0.0:
+                st.error(f"Exact Match Rate: {dcr_match:.2%} (Singling Out Risk Detected)")
+            else:
+                st.success(f"Exact Match Rate: {dcr_match:.2%} (Pass)")
+                
+        with col2:
+            st.subheader("Fidelity Scorecard")
+            st.info(f"Average KS Complement (Utility): {st.session_state.avg_ks:.4f}")
+            st.write("Higher values (closer to 1.0) indicate better preservation of statistical properties.")
+            
+        # Correlation Matrices
+        st.subheader("Correlation Matrix Comparison")
+        st.write("Comparing feature dependencies between Real and Synthetic datasets.")
+        
+        # Only compute corr for numeric columns
+        numeric_real = st.session_state.real_data.select_dtypes(include=[np.number])
+        numeric_syn = st.session_state.valid_synthetic_data.select_dtypes(include=[np.number])
+        
+        if not numeric_real.empty:
+            corr_real = numeric_real.corr()
+            corr_syn = numeric_syn.corr()
+            
+            fig, ax = plt.subplots(1, 2, figsize=(14, 5))
+            sns.heatmap(corr_real, ax=ax[0], cmap="coolwarm", annot=False, cbar=False)
+            ax[0].set_title("Real Data Correlation")
+            
+            sns.heatmap(corr_syn, ax=ax[1], cmap="coolwarm", annot=False, cbar=False)
+            ax[1].set_title("Synthetic Data Correlation")
+            
+            st.pyplot(fig)
+        else:
+            st.warning("Not enough numeric columns to generate a correlation matrix.")
+
+# =======================
+# TAB 4: Export
+# =======================
+with tab4:
+    st.header("Export Data & Compliance Certificate")
+    
+    if st.session_state.valid_synthetic_data is None:
+        st.info("Please generate synthetic data in the Training tab first.")
+    else:
+        df_export = st.session_state.valid_synthetic_data
+        
+        st.subheader("1. Download Synthetic Dataset")
+        
+        col_csv, col_parquet = st.columns(2)
+        
+        with col_csv:
+            csv_data = df_export.to_csv(index=False).encode('utf-8')
+            st.download_button(
+                label="📥 Download CSV",
+                data=csv_data,
+                file_name='synthetic_patient_data.csv',
+                mime='text/csv',
+            )
+            
+        with col_parquet:
+            # Save to buffer for parquet
+            buffer = io.BytesIO()
+            df_export.to_parquet(buffer, index=False)
+            st.download_button(
+                label="📥 Download Parquet",
+                data=buffer.getvalue(),
+                file_name='synthetic_patient_data.parquet',
+                mime='application/octet-stream',
+            )
+            
+        st.subheader("2. Certificate of Anonymity")
+        st.write("Generate the PDF certificate proving compliance with EMA Policy 0070.")
+        
+        if st.button("📄 Generate Certificate"):
+            os.makedirs('./reports/', exist_ok=True)
+            report_path = "./reports/output_certificate.pdf"
+            
+            create_pdf_report(
+                report_path=report_path,
+                risk_score=st.session_state.risk_score,
+                dcr_exact_rate=st.session_state.exact_match_rate,
+                avg_ks=st.session_state.avg_ks,
+                is_compliant=st.session_state.is_compliant
+            )
+            
+            with open(report_path, "rb") as pdf_file:
+                st.download_button(
+                    label="📥 Download PDF Certificate",
+                    data=pdf_file,
+                    file_name="Certificate_of_Anonymity.pdf",
+                    mime="application/pdf"
+                )
+            
+            st.success(f"Certificate saved to {report_path}")

@@ -1,0 +1,16 @@
+services:
+  adraca-engine:
+    build: .
+    container_name: adraca_synthetic_engine
+    ports:
+      - "8501:8501"
+    volumes:
+      - ./data/input:/app/data/input:ro
+      - ./data/output:/app/data/output:rw
+      - ./reports:/app/reports:rw
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '4'
+          memory: 64G

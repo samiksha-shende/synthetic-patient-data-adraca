@@ -1,0 +1,15 @@
+# Ignore sensitive clinical data
+data/input/*
+data/output/*
+!data/input/.gitkeep
+!data/output/.gitkeep
+
+# Ignore binary models and large PDFs
+models/*.pkl
+reports/*.pdf
+
+# Python environment and OS noise
+__pycache__/
+.env
+.venv/
+.DS_Store
