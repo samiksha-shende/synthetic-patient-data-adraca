@@ -1,0 +1,27 @@
+# Virtual environments
+venv/
+run_env/
+ui_env/
+myenv/
+anonymeter_env/
+my_analysis_env/
+
+# Python cache & logs
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.log
+streamlit_out.log
+
+# Temporary testing data
+dummy_patient_data.csv
+synthetic_data.parquet
+
+# Jupyter & OS files
+.ipynb_checkpoints
+.DS_Store
+
+# Git
+.git/
+.gitignore
