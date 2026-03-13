@@ -3,6 +3,8 @@ import pandas as pd
 import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
+from sklearn.decomposition import PCA
+from sklearn.preprocessing import StandardScaler
 import io
 import os
 import sys
@@ -13,6 +15,7 @@ sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 from src.synthesizer import DataIngestor, AdracaSynthesizer
 from src.privacy import PrivacyValidator
 from src.main import create_pdf_report
+from src.audit import AuditLogger
 
 # Page Configuration
 st.set_page_config(
@@ -217,9 +220,24 @@ with tab2:
                 st.session_state.avg_ks = avg_ks
                 st.session_state.is_compliant = is_compliant
                 
+                # Write to the Persistent Audit Log
+                status_text.text("Status: Writing Compliance Audit Log...")
+                progress_bar.progress(95)
+                logger = AuditLogger()
+                logger.log_run(
+                    epsilon=epsilon_val,
+                    num_input_rows=st.session_state.real_data.shape[0],
+                    num_input_cols=st.session_state.real_data.shape[1],
+                    num_output_rows=target_rows,
+                    singling_out_risk=risk_score,
+                    exact_match_rate=exact_match_rate,
+                    utility_score=avg_ks,
+                    is_compliant=is_compliant
+                )
+                
                 progress_bar.progress(100)
                 status_text.text("Status: Generation & Validation Complete!")
-                st.success("Engine Execution Finished. Please proceed to the Validation Tab.")
+                st.success("Engine Execution Finished and Audit Logged successfully. Please proceed to the Validation Tab.")
                 
             except Exception as e:
                 st.error(f"Engine failed: {e}")
@@ -279,6 +297,52 @@ with tab3:
             st.pyplot(fig)
         else:
             st.warning("Not enough numeric columns to generate a correlation matrix.")
+            
+        # PCA Scatter Plot (Fidelity overlay)
+        st.subheader("Principal Component Analysis (PCA) Overlay")
+        st.write("Visualizing high-dimensional numerical distributions on a 2D plane. High fidelity is achieved when the Synthetic data smoothly overlaps the Real data.")
+        
+        if not numeric_real.empty and numeric_real.shape[1] >= 2:
+            try:
+                # 1. Standardize and reduce original Real data
+                scaler = StandardScaler()
+                real_scaled = scaler.fit_transform(numeric_real.dropna())
+                
+                pca = PCA(n_components=2)
+                real_pca = pca.fit_transform(real_scaled)
+                
+                # 2. Standardize and reduce Synthetic data (using the same learned PCA basis)
+                syn_scaled = scaler.transform(numeric_syn.dropna())
+                syn_pca = pca.transform(syn_scaled)
+                
+                # Assemble Dataframes for Seaborn
+                pca_real_df = pd.DataFrame(real_pca, columns=['PC1', 'PC2'])
+                pca_real_df['Dataset'] = 'Real Data'
+                
+                pca_syn_df = pd.DataFrame(syn_pca, columns=['PC1', 'PC2'])
+                pca_syn_df['Dataset'] = 'Synthetic Data'
+                
+                pca_df = pd.concat([pca_real_df, pca_syn_df], axis=0)
+                
+                # Plot
+                fig_pca, ax_pca = plt.subplots(figsize=(10, 6))
+                sns.scatterplot(
+                    data=pca_df, 
+                    x='PC1', 
+                    y='PC2', 
+                    hue='Dataset',
+                    palette={'Real Data': '#1A73E8', 'Synthetic Data': '#F29900'},
+                    alpha=0.6,
+                    edgecolor=None,
+                    ax=ax_pca
+                )
+                ax_pca.set_title("Real vs. Synthetic Data Representation (PCA)")
+                st.pyplot(fig_pca)
+                
+            except Exception as e:
+                st.warning(f"Failed to generate PCA scatter plot: {e}")
+        else:
+            st.warning("PCA requires at least two continuous numerical columns in the dataset.")
 
 # =======================
 # TAB 4: Export

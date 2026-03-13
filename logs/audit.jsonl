@@ -1,0 +1,1 @@
+{"timestamp_utc": "2026-03-13T04:05:31.837670Z", "parameters": {"epsilon_privacy_budget": 1.0, "input_dataset_shape": [1000, 10], "target_output_rows": 1000}, "metrics": {"singling_out_risk": 0.04, "exact_match_rate_pct": 0.0, "utility_score_ks_complement": 0.92}, "compliance": {"passed_ema_policy_0070": true}}
