@@ -1,58 +1,42 @@
-# Adraca Synthetic Patient Data Engine
+# Adraca Synthetic Patient Data Engine: Automation & CI/CD Hub
 
-The Adraca Synthetic Patient Data Engine is an enterprise-grade synthetic data generation pipeline designed strictly for the healthcare sector. Built on top of the Synthetic Data Vault (SDV), this engine utilizes a **Gaussian Copula Synthesizer** coupled with mathematical guardrails to guarantee **$\epsilon$-Differential Privacy** and absolute compliance with regulations like **EMA Policy 0070** and **HIPAA**.
+Welcome to the **Automation Branch** of the Adraca Synthetic Patient Data Engine repository! This branch is strictly dedicated to hosting, configuring, and testing the complex Continuous Integration / Continuous Deployment (CI/CD) pipelines and regression testing suites.
 
-## Core Features & Operational Enhancements
+While the `main` branch holds the stable enterprise releases of the Dockerized engine, this branch tracks the active developments of mathematical guardrails (like testing EMA Policy 0070 restrictions) and the GitHub Actions automation layers.
 
-1. **Strict Privacy Guardrails**
-   - **Zero Exact Match Rate:** Cryptographically guarantees that 0% of generated synthetic records are identical to real underlying patient data.
-   - **Bounded Singling-Out Risk:** Mathematically models re-identification vulnerability, ensuring the probability of attacking the data remains below `0.09` (9%).
-2. **Resilient Data Preprocessing**
-   - Ingests messy real-world clinical data. Automatically heals missing numerical data (Median imputation) and categorical strings (Mode imputation).
-   - Dynamically coerces invalid Datetime strings (e.g. `"Invalid"`) into standardized timestamp backfills, preventing engine crashes.
-3. **Advanced Visualizations**
-   - Generates interactive **Principal Component Analysis (PCA)** scatter plots overlaying synthetic patients (orange) on real patients (blue).
-   - Visually proves high-dimensional structural fidelity and validates that the complex biological shape of the clinical data is mathematically preserved.
-4. **Compliance Audit Logging**
-   - Every successful synthetic batch commits a persistent JSON log object to `logs/audit.jsonl`.
-   - Records critical regulatory trails including the dataset shape, Differential Privacy $\epsilon$ budget, exact match rates, and compliance booleans for future audits.
-5. **Robust CI/CD & Testing Pipelines**
-   - Deploys **GitHub Actions** (`.github/workflows/ci.yml`) to automatically test the engine on every branch push or pull request.
-   - Executes a rigorous local `pytest` regression suite to ensure algorithmic updates never accidentally break the statutory privacy guardrails.
+## Core Automations Overview
 
-## Installation & Automation
+1. **GitHub Actions Workflow**
+   - **Location:** `.github/workflows/ci.yml`
+   - **Trigger:** Configured to trigger upon every `push` to `main` as well as any `pull_request` attempting to merge into it.
+   - **Action:** Provisions an isolated `ubuntu-latest` Linux runner. It installs Python 3.11, grabs the latest exact dependencies defined in our native `requirements.txt` file (bypassing the heavy offline-Docker containers), and completely isolates the backend algorithm into an agile testing environment.
+2. **Pytest Regression Suite**
+   - **Location:** `tests/` directory
+   - **Purpose:** We designed a rigorous array of hardcoded Unit Tests. Instead of simply asserting that functions "run without crashing", these tests forcefully feed explicit privacy violations into the `PrivacyValidator` (such as identical real & synthetic row collisions and singling-out metrics intentionally pushed beyond 0.09 probabilities).
+   - **Verification:** The Pytest suite must catch and flag 100% of these hardcoded violations accurately. Total testing success is the only way a build is permitted to merge into the codebase.
 
-### Standard Docker Setup (Day-1 Airgapped Infrastructure)
-The engine ships with a full Docker-Compose setup allowing it to run entirely isolated from the external internet containing sensitive data.
+## Testing Architecture
+
+If you are developing new AI layers or tightening the regulatory math in the backend `src/` modules, you must execute the suite identically to how the cloud Action server will evaluate it.
+
+### Local Simulation Initialization
+
+Instead of deploying the full Streamlit UI or starting Docker, execute this workflow on your local host:
 
 ```bash
-# Provide execution permission to the deployment script
-chmod +x deploy.sh
+# 1. Create and isolate a formal Python execution environment
+python3 -m venv test_env
+source test_env/bin/activate
 
-# Build and start the Streamlit application on Port 8501
-./deploy.sh
-```
-
-### CI/CD Pipeline Tracking
-If you wish to run the strict `pytest` regression suite natively outside of Docker (as deployed in the GitHub Action Pipeline):
-
-```bash
-# Create and source a Python 3.11+ Virtual Environment
-python3 -m venv env
-source env/bin/activate
-
-# Install the strict dependencies required for mathematical synthesis and testing
+# 2. Upgrade pip and install the direct repository requirements 
+# (This step pulls complex ML libraries natively like 'sdv' and custom forks like statice's 'anonymeter')
+python -m pip install --upgrade pip
 pip install -r requirements.txt
 
-# Execute the validation suite
-pytest tests/ -v
+# 3. Mount the engine source to the Python Path and trigger Pytest verbosely
+PYTHONPATH=. pytest tests/ -v
 ```
 
-## Application Interface (Streamlit)
+## Maintenance & Contributions
 
-Access the control panel at `http://localhost:8501`. 
-The application operates entirely statelessly across four tabs:
-1. **Ingest:** Upload your raw CSV clinical patient data. Click `Clean Data` to heal missing data.
-2. **Train:** Adjust your data volume scale and deploy the SDV synthetic model. The app will log the results locally once finished.
-3. **Validate:** Scrutinize the algorithmic performance. Review utility scores (Kolmogorov-Smirnov), privacy bounds, correlation matrices, and the interactive PCA 2D projections.
-4. **Export:** Download the finalized safe dataset as a raw CSV or Parquet file, and collect a formal PDF Audit Certificate to demonstrate regulatory compliance.
+When introducing new Python dependencies into the core engine architecture, ensure they are actively documented inside `requirements.txt`. Complex deep-learning modules (like `torch` and `numba`) must be explicitly version-bound to prevent future unprompted compatibility failures in the automated GitHub build log.
