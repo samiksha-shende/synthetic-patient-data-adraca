@@ -8,6 +8,7 @@ from sklearn.preprocessing import StandardScaler
 import io
 import os
 import sys
+import json
 
 # Ensure src modules are discoverable
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
@@ -101,7 +102,7 @@ with st.sidebar:
     )
 
 # Tabs
-tab1, tab2, tab3, tab4 = st.tabs(["1. Ingestion", "2. Training", "3. Validation", "4. Export"])
+tab1, tab2, tab3, tab4, tab5 = st.tabs(["1. Ingestion", "2. Training", "3. Validation", "4. Export", "5. Observability & Drift"])
 
 # =======================
 # TAB 1: Ingestion
@@ -447,3 +448,80 @@ with tab4:
                 )
             
             st.success(f"Certificate saved to {report_path}")
+
+# =======================
+# TAB 5: Observability & Drift
+# =======================
+with tab5:
+    st.header("📈 Observability & Drift Monitoring")
+    st.markdown("Track the historical degradation or improvement of the generating engine. Monitor specific statutory metrics over the entire enterprise lifetime.")
+    
+    log_path = "./logs/audit.jsonl"
+    
+    if not os.path.exists(log_path):
+        st.info("No historical logs detected. Execute the engine in the Training tab to begin tracking telemetry.")
+    else:
+        # 1. Parse JSONL History
+        history = []
+        try:
+            with open(log_path, 'r') as f:
+                for line in f:
+                    if line.strip():
+                        record = json.loads(line)
+                        history.append({
+                            "Run Timestamp (UTC)": record.get("timestamp_utc", "Unknown"),
+                            "Privacy Budget (ε)": record.get("parameters", {}).get("epsilon_privacy_budget", np.nan),
+                            "KS Complement (Utility)": record.get("metrics", {}).get("utility_score_ks_complement", np.nan),
+                            "Singling Out Risk": record.get("metrics", {}).get("singling_out_risk", np.nan),
+                            "Exact Match Rate": record.get("metrics", {}).get("exact_match_rate_pct", np.nan),
+                            "Passed 0070": record.get("compliance", {}).get("passed_ema_policy_0070", False)
+                        })
+            
+            df_history = pd.DataFrame(history)
+            
+            # 2. Active Alerting Engine (Evaluates the *latest* run)
+            st.subheader("Active Engine Health Status")
+            if not df_history.empty:
+                latest_run = df_history.iloc[-1]
+                
+                col1, col2, col3 = st.columns(3)
+                
+                with col1:
+                    latest_utility = latest_run['KS Complement (Utility)']
+                    if latest_utility < 0.80:
+                        st.error(f"🚨 Model Drift Warning! Utility dropped to {latest_utility:.2f}")
+                    else:
+                        st.success(f"✅ Fidelity Stable: {latest_utility:.2f}")
+                        
+                with col2:
+                    latest_risk = latest_run['Singling Out Risk']
+                    if latest_risk > 0.09:
+                        st.error(f"🚨 Severe Privacy Violation! Risk jumped to {latest_risk:.4f}")
+                    else:
+                        st.success(f"✅ Re-ID Risk Guarded: {latest_risk:.4f}")
+                
+                with col3:
+                    latest_compliance = latest_run['Passed 0070']
+                    if not latest_compliance:
+                        st.error("🚨 Statutory Policy 0070 Breach Detected.")
+                    else:
+                        st.success("✅ Fully Regulatory Compliant.")
+                        
+            st.markdown("---")        
+            st.subheader("Historical Telemetry View")
+            st.dataframe(df_history, use_container_width=True)
+            
+            # 3. Time Series Plotting
+            if len(df_history) >= 2:
+                st.subheader("📉 Time-Series: Fidelity Drift (Utility Score)")
+                st.write("Tracks the statistical preservation of complex datasets over time. Values drifting sharply downward indicate the engine is failing to learn changing real-world logic.")
+                st.line_chart(df_history["KS Complement (Utility)"], color="#1A73E8")
+                
+                st.subheader("🔒 Time-Series: Re-Identification Risk Trajectory")
+                st.write("Tracks the mathematical safety boundary. If this trajectory approaches the 0.09 ceiling, the synthetic algorithm must be manually retuned.")
+                st.line_chart(df_history["Singling Out Risk"], color="#F29900")
+            else:
+                st.info("Execute the engine at least twice to begin plotting time-series degradation trajectories.")
+                
+        except Exception as e:
+            st.error(f"Failed to compile Observability Telemetry: {e}")
