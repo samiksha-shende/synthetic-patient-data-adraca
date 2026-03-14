@@ -16,6 +16,7 @@ from src.synthesizer import DataIngestor, AdracaSynthesizer
 from src.privacy import PrivacyValidator
 from src.main import create_pdf_report
 from src.audit import AuditLogger
+from src.export import export_to_sqlite
 
 # Page Configuration
 st.set_page_config(
@@ -106,59 +107,83 @@ tab1, tab2, tab3, tab4 = st.tabs(["1. Ingestion", "2. Training", "3. Validation"
 # TAB 1: Ingestion
 # =======================
 with tab1:
-    st.header("Upload Patient Data")
-    uploaded_file = st.file_uploader("Upload CSV or Parquet file", type=["csv", "parquet"])
+    st.header("Ingest Patient Data")
     
-    if uploaded_file is not None:
-        try:
-            # Read Data
-            if uploaded_file.name.endswith('.csv'):
-                df = pd.read_csv(uploaded_file)
-            else:
-                df = pd.read_parquet(uploaded_file)
-                
-            st.session_state.real_data = df
-            
-            # Save to /data/input/ for tracking
-            os.makedirs('./data/input/', exist_ok=True)
-            input_path = f'./data/input/{uploaded_file.name}'
-            if uploaded_file.name.endswith('.csv'):
-                df.to_csv(input_path, index=False)
-            else:
-                df.to_parquet(input_path, index=False)
-            
-            st.success(f"Successfully loaded {df.shape[0]} rows and {df.shape[1]} columns.")
-            
-            # Data Health Summary
-            st.subheader("Data Health Summary")
-            col1, col2 = st.columns(2)
-            
-            # Column Types
-            cat_cols = df.select_dtypes(include=['object', 'category']).columns.tolist()
-            num_cols = df.select_dtypes(include=['number']).columns.tolist()
-            dt_cols = df.select_dtypes(include=['datetime']).columns.tolist()
-            
-            with col1:
-                st.write("**Feature Types:**")
-                st.write(f"- Categorical: {len(cat_cols)}")
-                st.write(f"- Numerical: {len(num_cols)}")
-                st.write(f"- Datetime: {len(dt_cols)}")
-                
-            # Missing Values
-            with col2:
-                missing_pct = df.isnull().mean() * 100
-                st.write("**Missing Values:**")
-                if missing_pct.sum() == 0:
-                    st.write("No missing values detected.")
+    ingest_method = st.radio("Select Ingestion Method:", ["File Upload", "Local SQLite Database"])
+    
+    df = None
+    
+    if ingest_method == "File Upload":
+        uploaded_file = st.file_uploader("Upload CSV or Parquet file", type=["csv", "parquet"])
+        if uploaded_file is not None:
+            try:
+                # Read Data
+                if uploaded_file.name.endswith('.csv'):
+                    df = pd.read_csv(uploaded_file)
                 else:
-                    st.dataframe(missing_pct[missing_pct > 0].to_frame(name="% Missing"))
+                    df = pd.read_parquet(uploaded_file)
+                
+                # Save to /data/input/ for tracking
+                os.makedirs('./data/input/', exist_ok=True)
+                input_path = f'./data/input/{uploaded_file.name}'
+                if uploaded_file.name.endswith('.csv'):
+                    df.to_csv(input_path, index=False)
+                else:
+                    df.to_parquet(input_path, index=False)
+            except Exception as e:
+                st.error(f"Error reading file: {e}")
+                
+    elif ingest_method == "Local SQLite Database":
+        st.info("Ingest real patient data securely from a local Air-Gapped SQLite database.")
+        db_path = st.text_input("SQLite Database Path", value="./data/real_patients.db")
+        table_name = st.text_input("Source Table Name", value="real_patients")
+        
+        if st.button("Load from Database"):
+            if not os.path.exists(db_path):
+                st.error(f"Database file not found at {db_path}")
+            elif not table_name:
+                st.error("Please provide a valid table name.")
+            else:
+                try:
+                    import sqlite3
+                    conn = sqlite3.connect(db_path)
+                    df = pd.read_sql_query(f"SELECT * FROM {table_name}", conn)
+                    conn.close()
+                except Exception as e:
+                    st.error(f"Error reading from database: {e}")
+
+    # Process Data if successfully loaded
+    if df is not None:
+        st.session_state.real_data = df
+        st.success(f"Successfully loaded {df.shape[0]} rows and {df.shape[1]} columns.")
+        
+        # Data Health Summary
+        st.subheader("Data Health Summary")
+        col1, col2 = st.columns(2)
+        
+        # Column Types
+        cat_cols = df.select_dtypes(include=['object', 'category']).columns.tolist()
+        num_cols = df.select_dtypes(include=['number']).columns.tolist()
+        dt_cols = df.select_dtypes(include=['datetime']).columns.tolist()
+        
+        with col1:
+            st.write("**Feature Types:**")
+            st.write(f"- Categorical: {len(cat_cols)}")
+            st.write(f"- Numerical: {len(num_cols)}")
+            st.write(f"- Datetime: {len(dt_cols)}")
             
-            # Show preview
-            st.write("**Data Preview:**")
-            st.dataframe(df.head())
-            
-        except Exception as e:
-            st.error(f"Error reading file: {e}")
+        # Missing Values
+        with col2:
+            missing_pct = df.isnull().mean() * 100
+            st.write("**Missing Values:**")
+            if missing_pct.sum() == 0:
+                st.write("No missing values detected.")
+            else:
+                st.dataframe(missing_pct[missing_pct > 0].to_frame(name="% Missing"))
+        
+        # Show preview
+        st.write("**Data Preview:**")
+        st.dataframe(df.head())
 
 # =======================
 # TAB 2: Training
@@ -379,7 +404,26 @@ with tab4:
                 mime='application/octet-stream',
             )
             
-        st.subheader("2. Certificate of Anonymity")
+        st.markdown("---")
+        st.subheader("2. Export to SQLite Database")
+        st.write("Safely pipe these synthetic patients directly into an offline database without downloading local files.")
+        
+        table_name = st.text_input("Target Database Table Name", value="synthetic_patients")
+        
+        if st.button("Push to Local Database"):
+            if not table_name:
+                st.error("Please provide a valid table name.")
+            else:
+                db_path = "./data/synthetic_patients.db"  # Path inside the mounted docker volume
+                success = export_to_sqlite(df_export, db_path, table_name)
+                
+                if success:
+                    st.success(f"Successfully piped {len(df_export)} rows to the `{table_name}` table in the offline database!")
+                    st.toast("Export Complete!")
+                else:
+                    st.error("Fatal Error occurred during database execution. Check internal logs.")
+
+        st.subheader("3. Certificate of Anonymity")
         st.write("Generate the PDF certificate proving compliance with EMA Policy 0070.")
         
         if st.button("📄 Generate Certificate"):
