@@ -14,6 +14,14 @@ While the `main` branch holds the stable enterprise releases of the Dockerized e
    - **Location:** `tests/` directory
    - **Purpose:** We designed a rigorous array of hardcoded Unit Tests. Instead of simply asserting that functions "run without crashing", these tests forcefully feed explicit privacy violations into the `PrivacyValidator` (such as identical real & synthetic row collisions and singling-out metrics intentionally pushed beyond 0.09 probabilities).
    - **Verification:** The Pytest suite must catch and flag 100% of these hardcoded violations accurately. Total testing success is the only way a build is permitted to merge into the codebase.
+3. **Air-Gapped Embedded SQLite Integrations**
+   - **Location:** `src/export.py` & Ingestion UI
+   - **Purpose:** Because the enterprise environment is strictly mathematically air-gapped, we cannot securely pipe patient data to AWS S3 or a hosted PostgreSQL server. 
+   - **Feature:** We engineered a local SQLAlchemy pipeline that can bi-directionally read real patient data from, and systematically append safe synthetic patient data to, a serverless local SQLite `.db` file bound to the `./data/` docker mount.
+4. **Multi-Stage Docker Optimization**
+   - **Location:** `Dockerfile`
+   - **Purpose:** To radically reduce cloud image storage costs and eliminate the security attack surface of shipping C++ compilers inside a production container.
+   - **Feature:** The container utilizes an ephemeral Builder stage to compile heavy deep learning algorithms from source, then drops the compilers and injects *only* the finished binaries into a minimalistic Runner production stage.
 
 ## Testing Architecture
 
