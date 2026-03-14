@@ -1,0 +1,19 @@
+version: '3.8'
+
+services:
+  adraca_synthetic_engine:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: adraca_synthetic_engine
+    ports:
+      - "8501:8501"
+    volumes:
+      # Data ingestion and exporting
+      - ./data:/app/data:rw
+      # Day 2 Audit JSON Logging (Persistent)
+      - ./logs:/app/logs:rw
+    environment:
+      # General configuration limits
+      - STREAMLIT_SERVER_MAX_UPLOAD_SIZE=500
+    restart: unless-stopped

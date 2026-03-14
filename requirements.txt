@@ -9,3 +9,4 @@ gower==0.1.2
 streamlit>=1.30.0
 reportlab>=4.0.0
 pytest>=7.4.0
+sqlalchemy>=2.0.0
