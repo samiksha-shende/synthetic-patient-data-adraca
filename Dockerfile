@@ -61,11 +61,23 @@ RUN mkdir -p /app/data/input /app/data/output /app/reports /app/models /app/logs
 # Fix permission ownership for the secure user
 RUN chown -R adraca_user:adraca_user /app
 
-# Switch context to the non-root user
-USER adraca_user
+# 6. Copy ONLY the explicitly required source code modules logic and data directories
+COPY src/ src/
+COPY data/ data/
+COPY logs/ logs/
+COPY reports/ reports/
+COPY .streamlit/ .streamlit/
 
-# Expose standard Streamlit port
+# 7. Add Enterprise Security Hardening (Non-Root User)
+# Create an explicit unprivileged user matching Kubernetes SecurityContext UID 1000
+RUN useradd -m -u 1000 adracauser && \
+    chown -R adracauser:adracauser /app
+
+# Switch away from root immediately
+USER 1000
+
+# 8. Declare internal exposed port
 EXPOSE 8501
 
-# Run the Streamlit frontend UI
-CMD ["streamlit", "run", "src/app.py", "--server.port=8501", "--server.address=0.0.0.0"]
+# 9. Execute Streamlit directly natively
+CMD ["streamlit", "run", "src/app.py", "--server.port", "8501", "--server.address", "0.0.0.0"]

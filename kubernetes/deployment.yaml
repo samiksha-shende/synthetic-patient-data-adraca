@@ -15,12 +15,26 @@ spec:
       labels:
         app: adraca-streamlit
     spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
       containers:
         - name: adraca-engine-container
           image: adraca:latest
           # CRITICAL FOR AIRGAP: Never attempt to download this image from the internet.
           # It must be loaded manually into the cluster nodes via `minikube load` or `docker save`
           imagePullPolicy: Never
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            privileged: false
+            runAsNonRoot: true
+            runAsUser: 1000
+            capabilities:
+              drop:
+                - ALL
           ports:
             - containerPort: 8501
           resources:
@@ -35,6 +49,10 @@ spec:
               mountPath: /app/data
             - name: logs-volume
               mountPath: /app/logs
+            - name: reports-volume
+              mountPath: /app/reports
+            - name: tmp-volume
+              mountPath: /tmp
       volumes:
         - name: data-volume
           persistentVolumeClaim:
@@ -42,6 +60,11 @@ spec:
         - name: logs-volume
           persistentVolumeClaim:
             claimName: adraca-logs-pvc
+        # Ephemeral temp directors for Streamlit and PDF cache writes since the root filesystem is totally locked.
+        - name: tmp-volume
+          emptyDir: {}
+        - name: reports-volume
+          emptyDir: {}
 ---
 apiVersion: v1
 kind: Service
