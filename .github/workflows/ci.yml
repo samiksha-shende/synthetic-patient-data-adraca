@@ -7,6 +7,11 @@ on:
     branches: [ "main", "Automation" ]
 
 jobs:
+  lint:
+    name: "Lint code"
+    runs-on: ubuntu-latest
+    continue-on-error: true
+
   test:
     name: Pytest Compliance Validation
     runs-on: ubuntu-latest
