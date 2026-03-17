@@ -66,6 +66,7 @@ COPY src/ src/
 COPY data/ data/
 COPY logs/ logs/
 COPY reports/ reports/
+COPY .reports/ /app/reports
 
 # 7. Add Enterprise Security Hardening (Non-Root User)
 # Create an explicit unprivileged user matching Kubernetes SecurityContext UID 1000
