@@ -2,9 +2,9 @@ name: Adraca Synthetic Engine CI
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [ "main", "Automation" ]
   pull_request:
-    branches: [ "main" ]
+    branches: [ "main", "Automation" ]
 
 jobs:
   test:
@@ -39,7 +39,7 @@ jobs:
     name: Build & Export Offline K8s Artifacts
     needs: test
     runs-on: ubuntu-latest
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/Automation')
 
     steps:
     - name: Checkout Code Repository
