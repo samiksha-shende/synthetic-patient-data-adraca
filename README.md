@@ -22,6 +22,10 @@ While the `main` branch holds the stable enterprise releases of the Dockerized e
    - **Location:** `Dockerfile`
    - **Purpose:** To radically reduce cloud image storage costs and eliminate the security attack surface of shipping C++ compilers inside a production container.
    - **Feature:** The container utilizes an ephemeral Builder stage to compile heavy deep learning algorithms from source, then drops the compilers and injects *only* the finished binaries into a minimalistic Runner production stage.
+5. **Air-Gapped Continuous Deployment (CD)**
+   - **Location:** `.github/workflows/ci.yml`
+   - **Purpose:** Securely bridge the gap between cloud GitHub compilation and an offline enterprise hospital environment.
+   - **Feature:** If the Pytest Compliance suite `Passes`, GitHub Actions automatically triggers a `docker build` using the Multi-Stage architecture. It compresses the finalized image natively via `docker save adraca > adraca-offline-image.tar`. This heavy binary, alongside the K8s Zero-Trust Manifests, is uploaded as a downloadable Zip Artifact. IT Staff simply download the Zip, USB-transfer it to the server room, run `docker load -i adraca-offline-image.tar`, and trigger `kubectl apply -f kubernetes/` to update the hospital.
 
 ## Testing Architecture
 

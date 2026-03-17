@@ -34,3 +34,34 @@ jobs:
     - name: Run Privacy & Synthesizer Tests
       run: |
         PYTHONPATH=. pytest tests/ -v
+
+  build-offline-image:
+    name: Build & Export Offline K8s Artifacts
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+    steps:
+    - name: Checkout Code Repository
+      uses: actions/checkout@v4
+
+    - name: Build Optimized Adraca Docker Image
+      run: |
+        docker build -t adraca:latest .
+        
+    - name: Compress Image for Air-Gapped Transport
+      run: |
+        docker save adraca:latest -o adraca-offline-image.tar
+        
+    - name: Stage Kubernetes Manifests
+      run: |
+        mkdir -p deploy-bundle
+        mv adraca-offline-image.tar deploy-bundle/
+        cp -r kubernetes deploy-bundle/
+        
+    - name: Upload Air-Gapped Release Bundle
+      uses: actions/upload-artifact@v4
+      with:
+        name: adraca-k8s-offline-bundle
+        path: deploy-bundle/
+        retention-days: 7
