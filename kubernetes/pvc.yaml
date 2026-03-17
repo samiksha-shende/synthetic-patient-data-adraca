@@ -1,0 +1,62 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: adraca-engine
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: adraca-data-pv
+  labels:
+    type: local
+spec:
+  storageClassName: manual
+  capacity:
+    storage: 5Gi
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain
+  hostPath:
+    path: "/opt/adraca/data"  # Physical directory on the offline K8s node
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: adraca-data-pvc
+  namespace: adraca-engine
+spec:
+  storageClassName: manual
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: adraca-logs-pv
+  labels:
+    type: local
+spec:
+  storageClassName: manual
+  capacity:
+    storage: 1Gi
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain
+  hostPath:
+    path: "/opt/adraca/logs"  # Physical directory on the offline K8s node
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: adraca-logs-pvc
+  namespace: adraca-engine
+spec:
+  storageClassName: manual
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi

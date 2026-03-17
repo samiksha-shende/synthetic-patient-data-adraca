@@ -1,0 +1,61 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: adraca-streamlit-app
+  namespace: adraca-engine
+  labels:
+    app: adraca-streamlit
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: adraca-streamlit
+  template:
+    metadata:
+      labels:
+        app: adraca-streamlit
+    spec:
+      containers:
+        - name: adraca-engine-container
+          image: adraca:latest
+          # CRITICAL FOR AIRGAP: Never attempt to download this image from the internet.
+          # It must be loaded manually into the cluster nodes via `minikube load` or `docker save`
+          imagePullPolicy: Never
+          ports:
+            - containerPort: 8501
+          resources:
+            requests:
+              memory: "1Gi"
+              cpu: "500m"
+            limits:
+              memory: "4Gi"
+              cpu: "2000m"
+          volumeMounts:
+            - name: data-volume
+              mountPath: /app/data
+            - name: logs-volume
+              mountPath: /app/logs
+      volumes:
+        - name: data-volume
+          persistentVolumeClaim:
+            claimName: adraca-data-pvc
+        - name: logs-volume
+          persistentVolumeClaim:
+            claimName: adraca-logs-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: adraca-streamlit-service
+  namespace: adraca-engine
+spec:
+  # Internal Hospital Intranet Load Balancer bypass.
+  # Exposes the Streamlit application on a static port on the host machine's IP.
+  type: NodePort
+  selector:
+    app: adraca-streamlit
+  ports:
+    - protocol: TCP
+      port: 8501
+      targetPort: 8501
+      nodePort: 30501
