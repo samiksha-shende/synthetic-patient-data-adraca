@@ -50,6 +50,7 @@ class PrivacyValidator:
         """Calculate Information-Theoretic Metric: KS Complement."""
         logging.info("Evaluating statistical utility using KS Complement...")
         ks_scores = []
+        logger = logging.getLogger(__name__)
         for col in self.real_data.columns:
             try:
                 # We skip KS Complement for datetime or completely distinct continuous if sdmetrics fails
@@ -59,7 +60,7 @@ class PrivacyValidator:
                 )
                 ks_scores.append(score)
             except Exception as e:
-                logging.error(f"KSComplement utility calculation skipped for column {col}: {e}")
+                logger.error(f"Error calculating KS Complement for {col}: {e}")
                 continue
                 
         avg_ks = np.mean(ks_scores) if ks_scores else 0.0
