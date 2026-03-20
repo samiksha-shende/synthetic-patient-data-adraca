@@ -148,7 +148,12 @@ with tab1:
                 try:
                     import sqlite3
                     conn = sqlite3.connect(db_path)
-                    df = pd.read_sql_query(f"SELECT * FROM {table_name}", conn)
+                    
+                    allowed_tables = ["real_patients", "synthetic_patients"]
+                    if table_name not in allowed_tables:
+                        raise ValueError(f"Invalid table name: {table_name}")
+                        
+                    df = pd.read_sql_query(f"SELECT * FROM {table_name}", conn)  # nosec B608
                     conn.close()
                 except Exception as e:
                     st.error(f"Error reading from database: {e}")

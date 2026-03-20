@@ -58,8 +58,9 @@ class PrivacyValidator:
                     synthetic_data=self.synthetic_data[col]
                 )
                 ks_scores.append(score)
-            except Exception:
-                pass
+            except Exception as e:
+                logging.error(f"KSComplement utility calculation skipped for column {col}: {e}")
+                continue
                 
         avg_ks = np.mean(ks_scores) if ks_scores else 0.0
         logging.info(f"Average KS Complement: {avg_ks:.4f}")
