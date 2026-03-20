@@ -50,8 +50,8 @@ jobs:
       run: |
         # Stop the build if there are Python syntax errors or undefined names
         flake8 src/ tests/ --count --select=E9,F63,F7,F82 --show-source --statistics
-        # Print styling warnings (like trailing whitespace or long lines) but do not halt the pipeline
-        flake8 src/ tests/ --count --max-line-length=120 --statistics --exit-zero
+        # Enforce softer 200-character line limit for Streamlit markdown compatibility
+        flake8 src/ tests/ --count --max-line-length=200 --statistics
 
     - name: Run Privacy & Synthesizer Tests
       run: |

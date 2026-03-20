@@ -3,20 +3,21 @@ import os
 from datetime import datetime
 import logging
 
+
 class AuditLogger:
     """Handles HIPAA/GDPR compliance audit trailing for the Sythetic Engine."""
-    
+
     def __init__(self, log_dir="./logs"):
         self.log_dir = log_dir
         self.log_file = os.path.join(self.log_dir, "audit.jsonl")
-        
+
         # Ensure log directory exists natively (or inside container)
         os.makedirs(self.log_dir, exist_ok=True)
-        
-    def log_run(self, epsilon, num_input_rows, num_input_cols, num_output_rows, 
+
+    def log_run(self, epsilon, num_input_rows, num_input_cols, num_output_rows,
                 singling_out_risk, exact_match_rate, utility_score, is_compliant):
         """Append a JSON record with privacy metrics to the audit log."""
-        
+
         record = {
             "timestamp_utc": datetime.utcnow().isoformat() + "Z",
             "parameters": {
@@ -33,7 +34,7 @@ class AuditLogger:
                 "passed_ema_policy_0070": is_compliant
             }
         }
-        
+
         try:
             with open(self.log_file, "a") as f:
                 f.write(json.dumps(record) + "\n")

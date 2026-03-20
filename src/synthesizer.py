@@ -9,17 +9,18 @@ warnings.filterwarnings('ignore')
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
+
 class DataPreprocessor:
     """Handles missing values and complex datetimes to ensure model stability."""
-    
+
     def __init__(self):
         self.numerical_imputers = {}
         self.categorical_imputers = {}
-        
+
     def fit_transform(self, df):
         logging.info("Starting advanced data preprocessing...")
         df_clean = df.copy()
-        
+
         for col in df_clean.columns:
             # 1. Handle Missing Numerical Values
             if pd.api.types.is_numeric_dtype(df_clean[col]):
@@ -31,7 +32,7 @@ class DataPreprocessor:
                     self.numerical_imputers[col] = median_val
                     df_clean[col] = df_clean[col].fillna(median_val)
                     logging.info(f"Imputed missing numericals in '{col}' with median: {median_val}")
-            
+
             # 2. Handle Missing Categorical Strings
             else:
                 if df_clean[col].isnull().any():
@@ -57,7 +58,7 @@ class DataPreprocessor:
                             fill_val = mode_val[0]
                         else:
                             fill_val = "Unknown"
-                        
+
                         self.categorical_imputers[col] = fill_val
                         df_clean[col] = df_clean[col].fillna(fill_val)
                         logging.info(f"Imputed missing categoricals in '{col}' with mode: '{fill_val}'")
@@ -79,9 +80,10 @@ class DataPreprocessor:
                     df_clean[col] = df_clean[col].fillna(fill_val)
         return df_clean
 
+
 class DataIngestor:
     """Handles data ingestion and metadata inference."""
-    
+
     @staticmethod
     def load_data(file_path):
         logging.info(f"Ingesting data from {file_path}")
@@ -100,9 +102,10 @@ class DataIngestor:
         # Quasi-identifier tagging could be manually added here based on columns
         return metadata
 
+
 class AdracaSynthesizer:
     """Wraps SDV GaussianCopulaSynthesizer with Differential Privacy noise injection."""
-    
+
     def __init__(self, metadata, epsilon=1.0):
         self.metadata = metadata
         self.epsilon = epsilon
@@ -112,11 +115,11 @@ class AdracaSynthesizer:
         logging.info("Training Gaussian Copula Synthesizer...")
         self.preprocessor = DataPreprocessor()
         clean_data = self.preprocessor.fit_transform(data)
-        
+
         # We must re-infer metadata since preprocessing might have casted types
         self.metadata = DataIngestor.infer_metadata(clean_data)
         self.synthesizer = GaussianCopulaSynthesizer(self.metadata)
-        
+
         self.synthesizer.fit(clean_data)
         self._inject_laplace_noise()
 
@@ -129,7 +132,7 @@ class AdracaSynthesizer:
             # The SDV synthesizer contains the fitted model under _model
             if hasattr(self.synthesizer, '_model') and self.synthesizer._model is not None:
                 copula = self.synthesizer._model
-                
+
                 # Check for the covariance matrix
                 if hasattr(copula, 'covariance'):
                     cov_matrix = copula.covariance
@@ -138,7 +141,7 @@ class AdracaSynthesizer:
                     noise_scale = 1.0 / (self.epsilon + 1e-6)
                     noise = np.random.laplace(loc=0.0, scale=noise_scale, size=cov_matrix.shape)
                     noisy_cov = cov_matrix + noise
-                    
+
                     # Ensure positive semi-definite and symmetric
                     noisy_cov = (noisy_cov + noisy_cov.T) / 2.0
                     eigvals, eigvecs = np.linalg.eigh(noisy_cov)

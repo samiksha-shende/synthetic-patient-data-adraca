@@ -4,6 +4,7 @@ import sqlite3
 import os
 from src.export import export_to_sqlite
 
+
 class TestSQLiteExportIntegration:
     """
     Test suite for validating the secure, air-gapped export of synthetic patients to an SQLite database.
@@ -29,21 +30,21 @@ class TestSQLiteExportIntegration:
         and correctly inserts all rows from the DataFrame.
         """
         table_name = "test_patients"
-        
+
         # Execute the export pipeline
         success = export_to_sqlite(sample_data, test_db_path, table_name)
-        
+
         # Assert the function returned True
         assert success is True
-        
+
         # Assert the database file was physically generated on disk
         assert os.path.exists(test_db_path)
-        
+
         # Connect to the SQLite DB and mathematically verify the payload
         conn = sqlite3.connect(test_db_path)
         result_df = pd.read_sql_query(f"SELECT * FROM {table_name}", conn)
         conn.close()
-        
+
         assert len(result_df) == 3
         assert list(result_df.columns) == ["patient_id", "age", "diagnosis_code"]
         assert result_df["diagnosis_code"].iloc[0] == "E11"
@@ -54,16 +55,16 @@ class TestSQLiteExportIntegration:
         safely 'appends' new batches to existing tables without dropping previous records.
         """
         table_name = "test_patients"
-        
+
         # Run export twice
         export_to_sqlite(sample_data, test_db_path, table_name)
         success = export_to_sqlite(sample_data, test_db_path, table_name)
-        
+
         assert success is True
-        
+
         conn = sqlite3.connect(test_db_path)
         result_df = pd.read_sql_query(f"SELECT * FROM {table_name}", conn)
         conn.close()
-        
+
         # 3 initial rows + 3 appended rows = 6 total rows
         assert len(result_df) == 6
