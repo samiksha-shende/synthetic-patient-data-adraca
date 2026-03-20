@@ -426,9 +426,7 @@ with tab4:
                 success = export_to_sqlite(df_export, db_path, table_name)
 
                 if success:
-                    st.success(
-                        f"Successfully piped {
-                            len(df_export)} rows to the `{table_name}` table in the offline database!")
+                    st.success(f"Successfully piped {len(df_export)} rows to the `{table_name}` table in the offline database!")
                     st.toast("Export Complete!")
                 else:
                     st.error("Fatal Error occurred during database execution. Check internal logs.")
