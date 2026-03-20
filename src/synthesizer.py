@@ -133,8 +133,6 @@ class AdracaSynthesizer:
                 # Check for the covariance matrix
                 if hasattr(copula, 'covariance'):
                     cov_matrix = copula.covariance
-                    n_features = cov_matrix.shape[0]
-                    
                     # DP calibration: add noise proportional to 1/epsilon
                     # Assuming bounded sensitivity.
                     noise_scale = 1.0 / (self.epsilon + 1e-6)

@@ -3,7 +3,7 @@ import numpy as np
 import pandas as pd
 import gower
 from sdmetrics.single_column import KSComplement
-from anonymeter.evaluators import SinglingOutEvaluator, LinkabilityEvaluator, InferenceEvaluator
+from anonymeter.evaluators import SinglingOutEvaluator
 
 class PrivacyValidator:
     """Handles distance metrics, utility checks, and GDPR/EHDS compliance validation."""
@@ -58,7 +58,7 @@ class PrivacyValidator:
                     synthetic_data=self.synthetic_data[col]
                 )
                 ks_scores.append(score)
-            except Exception as e:
+            except Exception:
                 pass
                 
         avg_ks = np.mean(ks_scores) if ks_scores else 0.0

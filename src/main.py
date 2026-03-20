@@ -1,7 +1,7 @@
 import argparse
 import sys
 import logging
-import pandas as pd
+import logging
 from fpdf import FPDF
 from synthesizer import DataIngestor, AdracaSynthesizer
 from privacy import PrivacyValidator
