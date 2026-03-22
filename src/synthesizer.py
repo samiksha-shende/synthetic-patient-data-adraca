@@ -16,17 +16,27 @@ class DataPreprocessor:
     def __init__(self):
         self.numerical_imputers = {}
         self.categorical_imputers = {}
+        self.missing_indicator_cols = set()
 
     def fit_transform(self, df):
         logging.info("Starting advanced data preprocessing...")
         df_clean = df.copy()
 
-        for col in df_clean.columns:
+        # Iterate over original columns (so we don't iterate over newly added boolean columns)
+        original_cols = list(df_clean.columns)
+
+        for col in original_cols:
+            is_missing_mask = df_clean[col].isnull()
+            if is_missing_mask.any():
+                # TDD Stage 2: Create explicit boolean indicator so SDV models the missingness distributions natively
+                indicator_col = f"{col}_is_missing"
+                df_clean[indicator_col] = is_missing_mask.astype(bool)
+                self.missing_indicator_cols.add(col)
+
             # 1. Handle Missing Numerical Values
             if pd.api.types.is_numeric_dtype(df_clean[col]):
-                if df_clean[col].isnull().any():
+                if is_missing_mask.any():
                     median_val = df_clean[col].median()
-                    # Fallback to 0 if median is nan
                     if pd.isna(median_val):
                         median_val = 0
                     self.numerical_imputers[col] = median_val
@@ -35,29 +45,22 @@ class DataPreprocessor:
 
             # 2. Handle Missing Categorical Strings
             else:
-                if df_clean[col].isnull().any():
-                    # Check if column looks like a datetime string
+                if is_missing_mask.any():
                     try:
                         parsed = pd.to_datetime(df_clean[col].dropna().head(10), errors='coerce')
-                        # If more than half parse successfully, assume it is meant to be a date column
                         is_date = (parsed.notnull().mean() > 0.5)
                     except Exception:
                         is_date = False
 
                     if is_date:
-                        # Attempt to parse dates uniformly
                         df_clean[col] = pd.to_datetime(df_clean[col], errors='coerce')
-                        # Fill bad dates with earliest date
                         min_date = df_clean[col].min()
                         self.categorical_imputers[col] = min_date
                         df_clean[col] = df_clean[col].fillna(min_date)
                         logging.info(f"Standardized and imputed datetimes in '{col}' with min date.")
                     else:
                         mode_val = df_clean[col].mode()
-                        if not mode_val.empty:
-                            fill_val = mode_val[0]
-                        else:
-                            fill_val = "Unknown"
+                        fill_val = mode_val[0] if not mode_val.empty else "Unknown"
 
                         self.categorical_imputers[col] = fill_val
                         df_clean[col] = df_clean[col].fillna(fill_val)
@@ -69,9 +72,16 @@ class DataPreprocessor:
     def transform(self, df):
         """Apply the learned imputation map if evaluating a new holdout dataset."""
         df_clean = df.copy()
+        
+        # Reconstruct missing indicators first
+        for col in self.missing_indicator_cols:
+            if col in df_clean.columns:
+                df_clean[f"{col}_is_missing"] = df_clean[col].isnull().astype(bool)
+
         for col, median_val in self.numerical_imputers.items():
             if col in df_clean.columns:
                 df_clean[col] = df_clean[col].fillna(median_val)
+                
         for col, fill_val in self.categorical_imputers.items():
             if col in df_clean.columns:
                 if pd.api.types.is_datetime64_any_dtype(pd.Series([fill_val])):

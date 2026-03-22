@@ -72,6 +72,8 @@ if 'exact_match_rate' not in st.session_state:
     st.session_state.exact_match_rate = None
 if 'avg_ks' not in st.session_state:
     st.session_state.avg_ks = None
+if 'avg_kl' not in st.session_state:
+    st.session_state.avg_kl = None
 if 'is_compliant' not in st.session_state:
     st.session_state.is_compliant = None
 
@@ -239,10 +241,10 @@ with tab2:
                 validator = PrivacyValidator(real_data=st.session_state.real_data, synthetic_data=raw_synthetic_data)
                 valid_synthetic_data, dcr_values, exact_match_rate = validator.calculate_dcr()
 
-                status_text.text("Status: Evaluating Statistical Utility...")
-                progress_bar.progress(85)
-                avg_ks = validator.evaluate_utility()
-                risk_score = validator.evaluate_reidentification_risk()
+                with st.spinner("📊 Evaluating statistical utility (Fidelity)..."):
+                    progress_bar.progress(85)
+                    avg_ks, avg_kl = validator.evaluate_utility()
+                    risk_score = validator.evaluate_reidentification_risk()
 
                 is_compliant = (risk_score <= 0.09) and (exact_match_rate == 0.0)
 
@@ -251,6 +253,7 @@ with tab2:
                 st.session_state.risk_score = risk_score
                 st.session_state.exact_match_rate = exact_match_rate
                 st.session_state.avg_ks = avg_ks
+                st.session_state.avg_kl = avg_kl
                 st.session_state.is_compliant = is_compliant
 
                 # Write to the Persistent Audit Log
@@ -262,9 +265,10 @@ with tab2:
                     num_input_rows=st.session_state.real_data.shape[0],
                     num_input_cols=st.session_state.real_data.shape[1],
                     num_output_rows=target_rows,
-                    singling_out_risk=risk_score,
-                    exact_match_rate=exact_match_rate,
+                    reid_risk=risk_score,
+                    dcr_exact_rate=exact_match_rate,
                     utility_score=avg_ks,
+                    kl_divergence=avg_kl,
                     is_compliant=is_compliant
                 )
 
@@ -306,7 +310,8 @@ with tab3:
         with col2:
             st.subheader("Fidelity Scorecard")
             st.info(f"Average KS Complement (Utility): {st.session_state.avg_ks:.4f}")
-            st.write("Higher values (closer to 1.0) indicate better preservation of statistical properties.")
+            st.warning(f"Average KL Divergence: {st.session_state.avg_kl:.4f}")
+            st.write("KS Values > 0.85 indicate excellent preservation of properties. KL Values < 0.1 indicate high fidelity.")
 
         # Correlation Matrices
         st.subheader("Correlation Matrix Comparison")
@@ -443,6 +448,7 @@ with tab4:
                 risk_score=st.session_state.risk_score,
                 dcr_exact_rate=st.session_state.exact_match_rate,
                 avg_ks=st.session_state.avg_ks,
+                avg_kl=st.session_state.avg_kl,
                 is_compliant=st.session_state.is_compliant
             )
 

@@ -2,7 +2,7 @@ import logging
 import numpy as np
 import pandas as pd
 import gower
-from sdmetrics.single_column import KSComplement
+from sdmetrics.single_column import KSComplement, KLDivergence
 from anonymeter.evaluators import SinglingOutEvaluator
 
 
@@ -17,11 +17,12 @@ class PrivacyValidator:
     def calculate_dcr(self):
         """
         Calculate DCR using Gower distance. Reject records with DCR == 0.0.
-        Uses batching to avoid OOM on large datasets.
+        Uses batching to avoid OOM on large datasets, and computes NNDR (BRD 5.1.2).
         """
-        logging.info("Calculating Distance to Closest Record (DCR) using Gower distance...")
+        logging.info("Calculating Distance to Closest Record (DCR) and NNDR using Gower distance...")
         valid_synthetic_records = []
         dcr_values = []
+        nndr_values = []
 
         n_synth = len(self.synthetic_data)
 
@@ -31,10 +32,18 @@ class PrivacyValidator:
             # gower_matrix returns distances between 0 and 1
             dist_matrix = gower.gower_matrix(synth_batch, self.real_data)
 
-            # Minimum distance for each synthetic record
-            min_dists = np.min(dist_matrix, axis=1)
+            # Extract 1st closest (DCR) and 2nd closest to compute NNDR
+            if dist_matrix.shape[1] > 1:
+                # np.partition efficiently isolates the two smallest elements per row
+                part = np.partition(dist_matrix, 1, axis=1)
+                d1 = part[:, 0]
+                d2 = part[:, 1]
+                nndr_values.extend((d1 / (d2 + 1e-9)).tolist())
+            else:
+                d1 = dist_matrix[:, 0]
+                nndr_values.extend([1.0] * len(d1))
 
-            for idx, dcr in enumerate(min_dists):
+            for idx, dcr in enumerate(d1):
                 if dcr > 0.0:
                     valid_synthetic_records.append(synth_batch.iloc[idx])
                     dcr_values.append(dcr)
@@ -43,30 +52,41 @@ class PrivacyValidator:
 
         valid_synthetic_df = pd.DataFrame(valid_synthetic_records)
         exact_match_rate = (n_synth - len(valid_synthetic_df)) / n_synth if n_synth > 0 else 0
+        avg_nndr = np.mean(nndr_values) if nndr_values else 1.0
 
-        logging.info(f"DCR validation completed. Exact Match Rate: {exact_match_rate:.2%}")
+        logging.info(f"DCR validation completed. Exact Match Rate: {exact_match_rate:.2%}, Average NNDR: {avg_nndr:.4f}")
         return valid_synthetic_df, dcr_values, exact_match_rate
 
     def evaluate_utility(self):
-        """Calculate Information-Theoretic Metric: KS Complement."""
-        logging.info("Evaluating statistical utility using KS Complement...")
+        """Calculate Information-Theoretic Metrics: KS Complement & KL Divergence."""
+        logging.info("Evaluating statistical utility using KS Complement & KL Divergence...")
         ks_scores = []
+        kl_scores = []
         logger = logging.getLogger(__name__)
+        
         for col in self.real_data.columns:
             try:
-                # We skip KS Complement for datetime or completely distinct continuous if sdmetrics fails
-                score = KSComplement.compute(
+                # KS Complement (Utility)
+                ks_score = KSComplement.compute(
                     real_data=self.real_data[col],
                     synthetic_data=self.synthetic_data[col]
                 )
-                ks_scores.append(score)
+                ks_scores.append(ks_score)
+                
+                # KL Divergence (Fidelity)
+                kl_score = KLDivergence.compute(
+                    real_data=self.real_data[col],
+                    synthetic_data=self.synthetic_data[col]
+                )
+                kl_scores.append(kl_score)
             except Exception as e:
-                logger.error(f"Error calculating KS Complement for {col}: {e}")
+                logger.error(f"Error calculating utility metrics for {col}: {e}")
                 continue
 
         avg_ks = np.mean(ks_scores) if ks_scores else 0.0
-        logging.info(f"Average KS Complement: {avg_ks:.4f}")
-        return avg_ks
+        avg_kl = np.mean(kl_scores) if kl_scores else 1.0
+        logging.info(f"Average KS Complement: {avg_ks:.4f} | Average KL Divergence: {avg_kl:.4f}")
+        return avg_ks, avg_kl
 
     def evaluate_reidentification_risk(self):
         """Evaluate re-identification risk using Anonymeter."""
