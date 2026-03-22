@@ -1,56 +1,26 @@
-# Adraca Synthetic Patient Engine
+# Adraca Synthetic Patient Engine 🧬
 
 ![Adraca Streamlit Dashboard](./assets/dashboard.png)
 
-An offline, scalable, privacy-preserving synthetic data generation platform designed to synthesize highly realistic patient records with mathematical privacy guarantees. Welcome to the **Automation Branch** of the Adraca Synthetic Patient Data Engine repository! This branch is strictly dedicated to hosting, configuring, and testing the complex Continuous Integration / Continuous Deployment (CI/CD) pipelines and regression testing suites.
+An offline, scalable, privacy-preserving synthetic data generation platform designed to synthesize highly realistic patient records with mathematical privacy guarantees.
 
-While the `main` branch holds the stable enterprise releases of the Dockerized engine, this branch tracks the active developments of mathematical guardrails (like testing EMA Policy 0070 restrictions) and the GitHub Actions automation layers.
+## Project Overview
 
-## Core Automations Overview
+The Adraca Synthetic Patient Engine empowers medical institutions and digital health researchers to build, train, and test machine learning models using hyper-realistic synthetic datasets without violating HIPAA / GDPR compliance or risking patient data leaks. 
 
-1. **GitHub Actions Workflow**
-   - **Location:** `.github/workflows/ci.yml`
-   - **Trigger:** Configured to trigger upon every `push` to `main` as well as any `pull_request` attempting to merge into it.
-   - **Action:** Provisions an isolated `ubuntu-latest` Linux runner. It installs Python 3.11, grabs the latest exact dependencies defined in our native `requirements.txt` file (bypassing the heavy offline-Docker containers), and completely isolates the backend algorithm into an agile testing environment.
-2. **Pytest Regression Suite**
-   - **Location:** `tests/` directory
-   - **Purpose:** We designed a rigorous array of hardcoded Unit Tests. Instead of simply asserting that functions "run without crashing", these tests forcefully feed explicit privacy violations into the `PrivacyValidator` (such as identical real & synthetic row collisions and singling-out metrics intentionally pushed beyond 0.09 probabilities).
-   - **Verification:** The Pytest suite must catch and flag 100% of these hardcoded violations accurately. Total testing success is the only way a build is permitted to merge into the codebase.
-3. **Air-Gapped Embedded SQLite Integrations**
-   - **Location:** `src/export.py` & Ingestion UI
-   - **Purpose:** Because the enterprise environment is strictly mathematically air-gapped, we cannot securely pipe patient data to AWS S3 or a hosted PostgreSQL server. 
-   - **Feature:** We engineered a local SQLAlchemy pipeline that can bi-directionally read real patient data from, and systematically append safe synthetic patient data to, a serverless local SQLite `.db` file bound to the `./data/` docker mount.
-4. **Multi-Stage Docker Optimization**
-   - **Location:** `Dockerfile`
-   - **Purpose:** To radically reduce cloud image storage costs and eliminate the security attack surface of shipping C++ compilers inside a production container.
-   - **Feature:** The container utilizes an ephemeral Builder stage to compile heavy deep learning algorithms from source, then drops the compilers and injects *only* the finished binaries into a minimalistic Runner production stage.
-5. **Air-Gapped Continuous Deployment (CD)**
-   - **Location:** `.github/workflows/ci.yml`
-   - **Purpose:** Securely bridge the gap between cloud GitHub compilation and an offline enterprise hospital environment.
-   - **Feature:** If the Pytest Compliance suite `Passes`, GitHub Actions automatically triggers a `docker build` using the Multi-Stage architecture. It compresses the finalized image natively via `docker save adraca > adraca-offline-image.tar`. This heavy binary, alongside the K8s Zero-Trust Manifests, is uploaded as a downloadable Zip Artifact. IT Staff simply download the Zip, USB-transfer it to the server room, run `docker load -i adraca-offline-image.tar`, and trigger `kubectl apply -f kubernetes/` to update the hospital.
+By running offline statistical frameworks that evaluate mathematical fidelity against real demographic data, the engine generates an identical twin dataset while utilizing a strict utility constraint engine (measuring Exact Match Rate and Singling-Out Risk probabilities) to prevent re-identification. 
 
-## Testing Architecture
+## Base Architecture
 
-If you are developing new AI layers or tightening the regulatory math in the backend `src/` modules, you must execute the suite identically to how the cloud Action server will evaluate it.
+Our infrastructure is strictly designed for **air-gapped** execution, ensuring critical medical data never leaves the host server environment.
 
-### Local Simulation Initialization
+1. **SDV Generation (Gaussian Copula):** Synthesizes categorical, numerical, and datetime clinical records seamlessly into a cohesive DataFrame.
+2. **Anonymeter Privacy Validation:** Actively tests generated distributions for Exact Match (DCR) and bounds Inference Risk statically below 0.09.
+3. **Local SQLite Storage Pipeline:** Bi-directionally reads raw data and auto-exports synthetic iterations into a local `.db` without relying on insecure cloud endpoints.
+4. **Streamlit UI Interface:** A powerful, highly-concurrent local Web Application serving a dynamic dashboard strictly on `localhost:8501`.
+5. **Zero-Trust Multi-Stage Docker:** Features an ephemeral build sequence to compile heavy C++ analytics tooling natively, dropping them before establishing a clean, secure Runner image ready for offline Kubernetes deployment.
 
-Instead of deploying the full Streamlit UI or starting Docker, execute this workflow on your local host:
+## Deployment & Branch Rules
 
-```bash
-# 1. Create and isolate a formal Python execution environment
-python3 -m venv test_env
-source test_env/bin/activate
-
-# 2. Upgrade pip and install the direct repository requirements 
-# (This step pulls complex ML libraries natively like 'sdv' and custom forks like statice's 'anonymeter')
-python -m pip install --upgrade pip
-pip install -r requirements.txt
-
-# 3. Mount the engine source to the Python Path and trigger Pytest verbosely
-PYTHONPATH=. pytest tests/ -v
-```
-
-## Maintenance & Contributions
-
-When introducing new Python dependencies into the core engine architecture, ensure they are actively documented inside `requirements.txt`. Complex deep-learning modules (like `torch` and `numba`) must be explicitly version-bound to prevent future unprompted compatibility failures in the automated GitHub build log.
+- **`main`**: Hosts the complete architectural overview and enterprise-ready versions of the Adraca core modules.
+- **`Automation`**: The active continuous integration testing staging ground. Hosts all Python PyTest regression test suites, strictly audited Flake8 lint configurations, and GitHub Actions CD pipelines.
