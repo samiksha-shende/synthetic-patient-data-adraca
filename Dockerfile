@@ -35,7 +35,8 @@ FROM python:3.11-slim AS runner
 # Set python environment variables securely
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    PATH="/opt/venv/bin:$PATH"
+    PATH="/opt/venv/bin:$PATH" \
+    PYTHONPATH="/app"
 
 # Install only minimalistic runtime dependencies (graphviz required for anonymeter rendering if needed)
 RUN apt-get update && apt-get install -y --no-install-recommends \
