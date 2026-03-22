@@ -1,6 +1,8 @@
-# Adraca Synthetic Patient Data Engine: Automation & CI/CD Hub
+# Adraca Synthetic Patient Engine
 
-Welcome to the **Automation Branch** of the Adraca Synthetic Patient Data Engine repository! This branch is strictly dedicated to hosting, configuring, and testing the complex Continuous Integration / Continuous Deployment (CI/CD) pipelines and regression testing suites.
+![Adraca Streamlit Dashboard](./assets/dashboard.png)
+
+An offline, scalable, privacy-preserving synthetic data generation platform designed to synthesize highly realistic patient records with mathematical privacy guarantees. Welcome to the **Automation Branch** of the Adraca Synthetic Patient Data Engine repository! This branch is strictly dedicated to hosting, configuring, and testing the complex Continuous Integration / Continuous Deployment (CI/CD) pipelines and regression testing suites.
 
 While the `main` branch holds the stable enterprise releases of the Dockerized engine, this branch tracks the active developments of mathematical guardrails (like testing EMA Policy 0070 restrictions) and the GitHub Actions automation layers.
 
