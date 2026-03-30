@@ -9,7 +9,7 @@ from privacy import PrivacyValidator
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 
-def create_pdf_report(report_path, risk_score, dcr_exact_rate, avg_ks, avg_kl, is_compliant):
+def create_pdf_report(report_path, risk_score, dcr_exact_rate, avg_ks, avg_kl, avg_hellinger, is_compliant):
     logging.info(f"Generating Certificate of Anonymity at {report_path}")
     pdf = FPDF()
     pdf.add_page()
@@ -21,6 +21,7 @@ def create_pdf_report(report_path, risk_score, dcr_exact_rate, avg_ks, avg_kl, i
     pdf.cell(200, 10, txt=f"Exact Match Rate (DCR=0): {dcr_exact_rate:.2%}", ln=True)
     pdf.cell(200, 10, txt=f"Average KS Complement (Utility): {avg_ks:.4f}", ln=True)
     pdf.cell(200, 10, txt=f"Average KL Divergence (Fidelity): {avg_kl:.4f}", ln=True)
+    pdf.cell(200, 10, txt=f"Average Hellinger Distance: {avg_hellinger:.4f}", ln=True)
     pdf.ln(10)
 
     compliance_text = "PASSED" if is_compliant else "FAILED"
@@ -72,7 +73,7 @@ def main():
 
     final_synthetic_data = valid_synthetic_data.head(args.rows)
 
-    avg_ks, avg_kl = validator.evaluate_utility()
+    avg_ks, avg_kl, avg_hellinger = validator.evaluate_utility()
     risk_score = validator.evaluate_reidentification_risk()
 
     is_compliant = risk_score <= 0.09 and exact_match_rate == 0.0
@@ -92,6 +93,7 @@ def main():
                       dcr_exact_rate=exact_match_rate,
                       avg_ks=avg_ks,
                       avg_kl=avg_kl,
+                      avg_hellinger=avg_hellinger,
                       is_compliant=is_compliant)
 
     logging.info("Pipeline completed successfully.")

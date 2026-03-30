@@ -49,19 +49,28 @@ class TestPrivacyValidator(unittest.TestCase):
         self.assertLessEqual(risk_score, 1.0)
 
     def test_utility_score_format(self):
-        """Test the Kolmogorov-Smirnov statistical feature validation."""
+        """Test the Kolmogorov-Smirnov, KL, and Hellinger feature validation."""
         synth_data = self.raw_data.copy()
         # Change 1 value to ensure it's not dropped by exact match
         synth_data.at[0, "Age"] = 26
 
         validator = PrivacyValidator(self.raw_data, synth_data)
 
-        utility = validator.evaluate_utility()
+        avg_ks, avg_kl, avg_hellinger = validator.evaluate_utility()
 
         # KS Complement utility must be between 0.0 (total failure) and 1.0 (perfect statistical match)
-        self.assertIsInstance(utility, float)
-        self.assertGreaterEqual(utility, 0.0)
-        self.assertLessEqual(utility, 1.0)
+        self.assertIsInstance(avg_ks, float)
+        self.assertGreaterEqual(avg_ks, 0.0)
+        self.assertLessEqual(avg_ks, 1.0)
+        
+        # KL Divergence must be >= 0.0
+        self.assertIsInstance(avg_kl, float)
+        self.assertGreaterEqual(avg_kl, 0.0)
+        
+        # Hellinger Distance must be between 0.0 and 1.0
+        self.assertIsInstance(avg_hellinger, float)
+        self.assertGreaterEqual(avg_hellinger, 0.0)
+        self.assertLessEqual(avg_hellinger, 1.0)
 
 
 if __name__ == '__main__':

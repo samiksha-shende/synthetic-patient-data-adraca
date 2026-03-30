@@ -6,7 +6,9 @@ matplotlib>=3.7.0
 sdv>=1.0.0
 git+https://github.com/statice/anonymeter.git
 gower==0.1.2
-streamlit>=1.30.0
+fastapi>=0.100.0
+uvicorn>=0.23.0
+python-multipart>=0.0.6
 reportlab>=4.0.0
 pytest>=7.4.0
 sqlalchemy>=2.0.0
